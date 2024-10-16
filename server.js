@@ -3,26 +3,29 @@ const http = require('http')
 const socketIo = require('socket.io')
 
 const app = express()
+
 const server = http.createServer(app)
+
 const io = socketIo(server)
 
 app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/index.html')
+  res.sendFile(__dirname, 'index.html')
 })
 
 io.on('connection', (socket) => {
-  console.log('a user connected')
+  console.log('connnected chat')
+  socket.broadcast.emit('chat message', 'A user has joined the chat')
 
   socket.on('chat message', (msg) => {
     io.emit('chat message', msg)
   })
 
   socket.on('disconnect', () => {
-    console.log('user disconnected')
+    console.log('user chat')
+    socket.broadcast.emit('chat message', 'A user has left the chat')
   })
 })
 
-const PORT = process.env.PORT || 3000
-server.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`)
+server.listen(3000, () => {
+  console.log('server connected')
 })

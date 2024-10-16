@@ -1,107 +1,44 @@
-<!DOCTYPE html>
 <html lang="en">
 
 <head>
  <meta charset="UTF-8">
- <style>
-  body {
-   font-family: Arial, sans-serif;
-   background-color: #f4f4f4;
-   margin: 0;
-   padding: 20px;
-  }
-
-  #messages {
-   list-style-type: none;
-   margin: 0;
-   padding: 0;
-   max-height: 400px;
-   overflow-y: auto;
-   background: white;
-   border-radius: 5px;
-   padding: 10px;
-  }
-
-  li {
-   margin: 5px 0;
-   padding: 5px;
-   border-radius: 5px;
-   background: #e7e7e7;
-  }
-
-  form {
-   margin-top: 20px;
-  }
-
-  input {
-   padding: 10px;
-   margin-right: 10px;
-   border: 1px solid #ccc;
-   border-radius: 5px;
-  }
-
-  button {
-   padding: 10px;
-   border: none;
-   background-color: #28a745;
-   color: white;
-   border-radius: 5px;
-   cursor: pointer;
-  }
- </style>
-
  <meta name="viewport" content="width=device-width, initial-scale=1.0">
- <title>Real-Time Chat</title>
- <script src="/socket.io/socket.io.js"></script>
- <script>
-  const socket = io();
-  let username = '';
-
-  window.onload = function () {
-   const form = document.getElementById('form');
-   const input = document.getElementById('input');
-
-   form.addEventListener('submit', function (e) {
-    e.preventDefault();
-
-    if (input.value) {
-     socket.emit('chat message', `${username}: ${input.value}`);
-     input.value = '';
-    }
-   });
-
-   socket.on('chat message', function (msg) {
-    const timestamp = new Date().toLocaleTimeString();
-    const item = document.createElement('li');
-    item.textContent = `${timestamp} - ${msg}`;
-    document.getElementById('messages').appendChild(item);
-    window.scrollTo(0, document.body.scrollHeight);
-   });
-
-   document.getElementById('usernameForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    const nameInput = document.getElementById('usernameInput');
-    if (nameInput.value) {
-     username = nameInput.value;
-     nameInput.value = '';
-     document.getElementById('usernameForm').style.display = 'none'; // Hide the username form
-    }
-   });
-  };
- </script>
+ <title>Chat App</title>
 </head>
 
 <body>
- <ul id="messages"></ul>
- <form id="form" action="">
-  <input id="input" autocomplete="off" /><button>Send</button>
+ <form id="form" action="submit">
+  <input id="input" type="text" autocomplete="off"><button>send</button>
  </form>
 
- <form id="usernameForm" action="">
-  <input id="usernameInput" placeholder="Enter your name" required autocomplete="off" />
-  <button>Set Username</button>
- </form>
+ <ul id="messages">sample</ul>
+ <script src="/socket.io/socket.io.js"></script>
+ <script>
 
+  const socket = io()
+
+  const form = document.getElementById('form')
+  const input = document.getElementById('input');
+
+  form.addEventListener('submit', (e) => {
+   e.preventDefault()
+
+   if (input.value) {
+    socket.emit("chat message", input.value)
+    console.log(input.value);
+
+    input.value = '';
+   }
+  })
+
+  socket.on('chat message', (msg) => {
+   console.log(msg);
+   const timestamp = new Date().toLocaleTimeString(); // Get the current time
+   const li = document.createElement('li');
+   li.textContent = `${timestamp} - ${msg}`; // Add timestamp to message
+   document.getElementById('messages').appendChild(li);
+  })
+ </script>
 </body>
 
 </html>
