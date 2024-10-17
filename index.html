@@ -1,43 +1,266 @@
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
  <meta charset="UTF-8">
  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <link rel="stylesheet" href="/style.css">
  <title>Chat App</title>
 </head>
 
 <body>
  <form id="form" action="submit">
-  <input id="input" type="text" autocomplete="off"><button>send</button>
+  <input id="input" type="text" autocomplete="off" placeholder="Type your message...">
+  <button>Send</button>
  </form>
 
+ <input type="file" id="fileInput">
+ <button id="sendFileButton">Send File</button>
  <ul id="messages"></ul>
+ <div id="typingStatus"></div>
+ <h3>Connected Users:</h3>
+ <ul id="userList"></ul>
+
+ <div id="registration">
+  <input id="registerUsername" type="text" placeholder="Username">
+  <input id="registerPassword" type="password" placeholder="Password">
+  <button id="registerButton">Register</button>
+ </div>
+
+ <!-- Login form -->
+ <div id="login" style="display: none;">
+  <input id="loginUsername" type="text" placeholder="Username">
+  <input id="loginPassword" type="password" placeholder="Password">
+  <button id="loginButton">Login</button>
+ </div>
+
+ <div id="uploadProgress"></div>
+
+
+ <!-- Include Socket.IO library -->
  <script src="/socket.io/socket.io.js"></script>
  <script>
-
-  const socket = io()
-
-  const form = document.getElementById('form')
+  const socket = io();
+  const form = document.getElementById('form');
   const input = document.getElementById('input');
+  const typingStatus = document.getElementById('typingStatus');
+
+
+
+
+  const username = prompt("Enter your username:") || 'User';
+  socket.emit('set username', username);
+
+  const room = prompt("Enter room name:") || 'General';
+  socket.emit('join room', room);
+
 
   form.addEventListener('submit', (e) => {
-   e.preventDefault()
-
+   e.preventDefault();
    if (input.value) {
-    socket.emit("chat message", input.value)
-    console.log(input.value);
-
+    socket.emit('chat message', input.value);
     input.value = '';
+    typingStatus.innerHTML = ''; // Clear typing status after sending a message
    }
-  })
+  });
 
+  input.addEventListener('keypress', () => {
+   console.log('User is typing...'); // Add this line
+   socket.emit('typing', username);
+  });
+
+  input.addEventListener('keyup', () => {
+   if (input.value === '') {
+    console.log('User stopped typing...'); // Add this line
+    socket.emit('stop typing', username);
+   }
+  });
+
+  document.getElementById('sendFileButton').addEventListener('click', () => {
+   const fileInput = document.getElementById('fileInput');
+   const file = fileInput.files[0];
+   const formData = new FormData();
+   formData.append('file', file);
+   formData.append('username', socket.username); // Add username to form data
+
+   fetch('/upload', {
+    method: 'POST',
+    body: formData
+   })
+    .then(response => {
+     if (response.ok) {
+      console.log('File sent successfully');
+     }
+    });
+  });
+
+
+  document.getElementById('sendFileButton').addEventListener('click', () => {
+   const fileInput = document.getElementById('fileInput');
+   const file = fileInput.files[0];
+
+   // Check file type
+   const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+   if (file && allowedTypes.includes(file.type)) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('username', socket.username); // Add username to form data
+
+    fetch('/upload', {
+     method: 'POST',
+     body: formData
+    })
+     .then(response => {
+      if (response.ok) {
+       console.log('File sent successfully');
+      } else {
+       console.error('File upload failed');
+      }
+     });
+   } else {
+    alert('Invalid file type! Only JPG, PNG, and PDF files are allowed.');
+   }
+  });
   socket.on('chat message', (msg) => {
-   console.log(msg);
-   const timestamp = new Date().toLocaleTimeString(); // Get the current time
+   const timestamp = new Date().toLocaleTimeString();
    const li = document.createElement('li');
-   li.textContent = `${timestamp} - ${msg}`; // Add timestamp to message
+   li.textContent = `${msg.timestamp} - ${msg.username}: ${msg.message}`;
    document.getElementById('messages').appendChild(li);
-  })
+  });
+
+  socket.on('typing', (username) => {
+   typingStatus.textContent = `${username} is typing...`;
+  });
+
+  socket.on('stop typing', () => {
+   typingStatus.textContent = '';
+  });
+
+  socket.on('update users', (userList) => {
+   const userListElement = document.getElementById('userList');
+   userListElement.innerHTML = ''; // Clear current list
+   userList.forEach((user) => {
+    const li = document.createElement('li');
+    li.textContent = user;
+    userListElement.appendChild(li);
+   });
+  });
+
+  // Handle user connection and disconnection
+  socket.on('user connected', (username) => {
+   const li = document.createElement('li');
+   li.textContent = `${username} has joined the chat`;
+   document.getElementById('messages').appendChild(li);
+  });
+
+  // Receive chat history when connected
+  socket.on('chat history', (chatHistory) => {
+   chatHistory.forEach((msg) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const li = document.createElement('li');
+    li.textContent = `${timestamp} - ${msg.username}: ${msg.message}`;
+    document.getElementById('messages').appendChild(li);
+   });
+  });
+
+
+  socket.on('user disconnected', (username) => {
+   const li = document.createElement('li');
+   li.textContent = `${username} has left the chat`;
+   document.getElementById('messages').appendChild(li);
+  });
+
+  document.getElementById('sendFileButton').addEventListener('click', () => {
+   const fileInput = document.getElementById('fileInput');
+   const file = fileInput.files[0];
+
+   // Check file type
+   const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+   if (file && allowedTypes.includes(file.type)) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('username', socket.username); // Add username to form data
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/upload', true);
+
+    // Show progress
+    xhr.upload.addEventListener('progress', (event) => {
+     if (event.lengthComputable) {
+      const percentComplete = (event.loaded / event.total) * 100;
+      console.log(`Upload progress: ${percentComplete}%`);
+      document.getElementById('uploadProgress').textContent = `Upload progress: ${percentComplete.toFixed(2)}%`;
+     }
+    });
+
+    xhr.onload = () => {
+     if (xhr.status === 200) {
+      console.log('File sent successfully');
+      document.getElementById('uploadProgress').textContent = 'File uploaded successfully!';
+     } else {
+      console.error('File upload failed');
+      document.getElementById('uploadProgress').textContent = 'File upload failed.';
+     }
+    };
+
+    xhr.send(formData);
+   } else {
+    alert('Invalid file type! Only JPG, PNG, and PDF files are allowed.');
+   }
+  });
+
+
+  socket.on('file uploaded', (fileInfo) => {
+   const li = document.createElement('li');
+
+   // Create a link for the uploaded file
+   const fileLink = document.createElement('a');
+   fileLink.href = `/uploads/${fileInfo.filename}`; // Ensure this path matches where files are stored
+   fileLink.textContent = `File from ${fileInfo.username}: ${fileInfo.originalname}`;
+   fileLink.target = '_blank'; // Open in a new tab
+
+   li.appendChild(document.createTextNode(`${fileInfo.timestamp} - `));
+   li.appendChild(fileLink);
+   document.getElementById('messages').appendChild(li);
+  });
+  // Show registration form
+  const registrationDiv = document.getElementById('registration');
+  const loginDiv = document.getElementById('login');
+
+  document.getElementById('registerButton').addEventListener('click', () => {
+   const username = document.getElementById('registerUsername').value;
+   const password = document.getElementById('registerPassword').value;
+   socket.emit('register', username, password);
+  });
+
+  document.getElementById('loginButton').addEventListener('click', () => {
+   const username = document.getElementById('loginUsername').value;
+   const password = document.getElementById('loginPassword').value;
+   socket.emit('login', username, password);
+  });
+
+  // Handle registration success/error
+  socket.on('registration success', (message) => {
+   alert(message);
+   registrationDiv.style.display = 'none';
+   loginDiv.style.display = 'block'; // Show login after registration
+  });
+
+  socket.on('registration error', (message) => {
+   alert(message);
+  });
+
+  // Handle login success/error
+  socket.on('login success', (message) => {
+   alert(message);
+   // Hide login form and show chat interface
+   loginDiv.style.display = 'none';
+   // (You may want to display the chat interface here)
+  });
+
+  socket.on('login error', (message) => {
+   alert(message);
+  });
  </script>
 </body>
 
